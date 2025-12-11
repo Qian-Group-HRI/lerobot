@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-"""
-MAC-SAFE VERSION: YOLO video stream on main thread, robot control on child thread.
-Fixes macOS OpenCV crash: "Unknown C++ exception from OpenCV code"
-
-All robot P-control and keyboard teleop is identical to your original file.
-"""
-
 import time
 import logging
 import traceback
@@ -15,16 +7,10 @@ import numpy as np
 import threading
 from ultralytics import YOLOE
 
-# --------------------------------------------------------------------
-# LOGGING
-# --------------------------------------------------------------------
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --------------------------------------------------------------------
-# JOINT CALIBRATION
-# --------------------------------------------------------------------
 JOINT_CALIBRATION = [
     ['shoulder_pan', 6.0, 1.0],
     ['shoulder_lift', 2.0, 0.97],
@@ -40,9 +26,6 @@ def apply_joint_calibration(joint_name, raw_position):
             return (raw_position - j[1]) * j[2]
     return raw_position
 
-# --------------------------------------------------------------------
-# INVERSE KINEMATICS
-# --------------------------------------------------------------------
 def inverse_kinematics(x, y, l1=0.1159, l2=0.1350):
     theta1_offset = math.atan2(0.028, 0.11257)
     theta2_offset = math.atan2(0.0052, 0.1349) + theta1_offset
@@ -72,9 +55,6 @@ def inverse_kinematics(x, y, l1=0.1159, l2=0.1350):
     j3 = j3 - 90
     return j2, j3
 
-# --------------------------------------------------------------------
-# MOVE TO ZERO POSITION
-# --------------------------------------------------------------------
 def move_to_zero_position(robot, duration=3.0, kp=0.5):
     print("Using P control to slowly move robot to zero position...")
 
@@ -107,9 +87,6 @@ def move_to_zero_position(robot, duration=3.0, kp=0.5):
 
     print("Robot has moved to zero position")
 
-# --------------------------------------------------------------------
-# RETURN TO START POSITION
-# --------------------------------------------------------------------
 def return_to_start_position(robot, start_positions, kp=0.5, freq=50):
     print("Returning to start position...")
 
@@ -133,9 +110,6 @@ def return_to_start_position(robot, start_positions, kp=0.5, freq=50):
 
     print("Return to start position completed")
 
-# --------------------------------------------------------------------
-# ROBOT CONTROL LOOP (CHILD THREAD)
-# --------------------------------------------------------------------
 def robot_control_loop(robot, keyboard, target_positions, start_positions,
                         current_x, current_y, kp=0.5, freq=50):
 
@@ -209,9 +183,6 @@ def robot_control_loop(robot, keyboard, target_positions, start_positions,
             traceback.print_exc()
             break
 
-# --------------------------------------------------------------------
-# MAIN (YOLO + GUI IN MAIN THREAD)
-# --------------------------------------------------------------------
 def main():
     print("LeRobot Mac-Safe YOLO + Keyboard Control")
     print("="*60)
@@ -227,9 +198,6 @@ def main():
     keyboard.connect()
     print("Devices connected!")
 
-    # -----------------------------------------
-    # CALIBRATION
-    # -----------------------------------------
     choice = input("Recalibrate robot? (y/n): ").lower()
     if choice in ["y","yes"]:
         robot.calibrate()
@@ -237,9 +205,6 @@ def main():
     else:
         print("Using previous calibration file.")
 
-    # -----------------------------------------
-    # READ START POSITION
-    # -----------------------------------------
     obs = robot.get_observation()
     start_positions = {k.replace(".pos",""): int(v)
                        for k,v in obs.items() if k.endswith(".pos")}
@@ -254,9 +219,6 @@ def main():
 
     current_x, current_y = 0.1629, 0.1131
 
-    # -----------------------------------------
-    # YOLO SETUP
-    # -----------------------------------------
     print("\nYOLO SETUP\n" + "="*60)
     model = YOLOE("yoloe-11l-seg.pt")
 
@@ -269,9 +231,6 @@ def main():
 
     model.set_classes(target_objects, model.get_text_pe(target_objects))
 
-    # -----------------------------------------
-    # CAMERA
-    # -----------------------------------------
     cams = []
     for i in range(5):
         cap = cv2.VideoCapture(i)
@@ -283,9 +242,7 @@ def main():
     cam_id = int(input("Select camera: "))
     cap = cv2.VideoCapture(cam_id)
 
-    # -----------------------------------------
-    # START ROBOT CONTROL THREAD
-    # -----------------------------------------
+
     t = threading.Thread(
         target=robot_control_loop,
         args=(robot, keyboard, target_positions, start_positions,
@@ -293,9 +250,6 @@ def main():
         daemon=True)
     t.start()
 
-    # -----------------------------------------
-    # MAIN LOOP: YOLO + imshow  (Main thread!)
-    # -----------------------------------------
     print("Starting YOLO stream on main thread...")
     # while True:
     #     ret, frame = cap.read()
@@ -322,9 +276,6 @@ def main():
         if results and results[0].boxes:
             annotated = results[0].plot()
 
-            # ----------------------------------------------
-            # --- SELECT FIRST DETECTED OBJECT TO FOLLOW ---
-            # ----------------------------------------------
             box = results[0].boxes[0]
             xyxy = box.xyxy[0].cpu().numpy()
             x1, y1, x2, y2 = xyxy
@@ -340,9 +291,6 @@ def main():
             error_x = (cx - center_x) / center_x
             error_y = (cy - center_y) / center_y
 
-            # ----------------------------------------------
-            # --- CONVERT VISUAL ERRORS TO IK TARGET SHIFT ---
-            # ----------------------------------------------
             gain_x = 0.003   # tune horizontally
             gain_y = 0.003   # tune vertically
 
@@ -354,9 +302,6 @@ def main():
             current_x = max(0.05, min(0.25, current_x))
             current_y = max(0.02, min(0.18, current_y))
 
-            # ----------------------------------------------
-            # --- UPDATE IK SOLUTION FOR JOINT2+JOINT3 ---
-            # ----------------------------------------------
             j2, j3 = inverse_kinematics(current_x, current_y)
             target_positions["shoulder_lift"] = j2
             target_positions["elbow_flex"] = j3
