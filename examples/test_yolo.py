@@ -111,7 +111,7 @@ def return_to_start_position(robot, start_positions, kp=0.5, freq=50):
     print("Return to start position completed")
 
 def robot_control_loop(robot, keyboard, target_positions, start_positions,
-                        current_x, current_y, kp=0.5, freq=50):
+                        current_x, current_y, kp=0.8, freq=50):
 
     pitch = 0
     pitch_step = 1
@@ -291,8 +291,8 @@ def main():
             error_x = (cx - center_x) / center_x
             error_y = (cy - center_y) / center_y
 
-            gain_x = 0.003   # tune horizontally
-            gain_y = 0.003   # tune vertically
+            gain_x = 0.01   # tune horizontally
+            gain_y = 0.01   # tune vertically
 
             # "target moves right" means "robot moves right"
             current_x -= gain_x * error_x

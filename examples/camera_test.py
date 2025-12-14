@@ -4,7 +4,7 @@ print(cv2.VideoCapture())
 # length = len(cv2.VideoCapture())
 
 # print(f"OpenCV VideoCapture backend name length: {length}")
-idx = 3
+idx = 2
 print(f"Trying camera index {idx} ...")
 
 
